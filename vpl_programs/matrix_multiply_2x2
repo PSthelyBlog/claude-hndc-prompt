@@ -1,0 +1,33 @@
+PROGRAM: matrix_multiply_2x2
+Description: Multiplies two 2x2 matrices
+Expected inputs: Matrix A as a11,a12,a21,a22; Matrix B as b11,b12,b21,b22
+---
+# Calculate result matrix C = A × B
+# c11 = a11*b11 + a12*b21
+COMPUTE mul $a11 $b11 -> $temp1
+COMPUTE mul $a12 $b21 -> $temp2
+COMPUTE add $temp1 $temp2 -> $c11
+
+# c12 = a11*b12 + a12*b22
+COMPUTE mul $a11 $b12 -> $temp1
+COMPUTE mul $a12 $b22 -> $temp2
+COMPUTE add $temp1 $temp2 -> $c12
+
+# c21 = a21*b11 + a22*b21
+COMPUTE mul $a21 $b11 -> $temp1
+COMPUTE mul $a22 $b21 -> $temp2
+COMPUTE add $temp1 $temp2 -> $c21
+
+# c22 = a21*b12 + a22*b22
+COMPUTE mul $a21 $b12 -> $temp1
+COMPUTE mul $a22 $b22 -> $temp2
+COMPUTE add $temp1 $temp2 -> $c22
+
+# Store result matrix
+MEMORY store c11 $c11
+MEMORY store c12 $c12
+MEMORY store c21 $c21
+MEMORY store c22 $c22
+
+RETURN "Matrix multiplication complete"
+---

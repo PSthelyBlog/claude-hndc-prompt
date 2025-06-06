@@ -1,0 +1,42 @@
+PROGRAM: statistics_calculator
+Description: Calculates mean, variance, and standard deviation
+Expected inputs: Array values pre-stored in memory as val_0, val_1, etc.
+---
+# Initialize counters
+SET $sum 0
+SET $count 0
+SET $sum_squares 0
+
+# First pass: calculate sum and count
+LOOP 100
+  STRING concat "val_" $count -> $key
+  MEMORY load $key -> $value
+  
+  IF $FLAG_error THEN
+    # No more values
+    COMPUTE sub $count 1 -> $count
+    LOOP 0  # Exit
+  ELSE
+    COMPUTE add $sum $value -> $sum
+    COMPUTE pow $value 2 -> $squared
+    COMPUTE add $sum_squares $squared -> $sum_squares
+    COMPUTE add $count 1 -> $count
+  ENDIF
+ENDLOOP
+
+# Calculate mean
+COMPUTE div $sum $count -> $mean
+MEMORY store mean $mean
+
+# Calculate variance: E[X²] - (E[X])²
+COMPUTE div $sum_squares $count -> $mean_squares
+COMPUTE pow $mean 2 -> $mean_squared
+COMPUTE sub $mean_squares $mean_squared -> $variance
+MEMORY store variance $variance
+
+# Calculate standard deviation
+COMPUTE sqrt $variance -> $stddev
+MEMORY store stddev $stddev
+
+RETURN $mean
+---

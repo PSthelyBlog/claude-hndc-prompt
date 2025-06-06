@@ -1,0 +1,37 @@
+PROGRAM: binary_search
+Description: Binary search in sorted array
+Expected inputs: $target, array stored as arr_0, arr_1, etc., $size
+---
+SET $left 0
+COMPUTE sub $size 1 -> $right
+SET $found -1
+
+LOOP $size
+  IF $left > $right THEN
+    RETURN $found
+  ENDIF
+  
+  # Calculate midpoint
+  COMPUTE add $left $right -> $sum
+  COMPUTE div $sum 2 -> $mid
+  MATH floor $mid -> $mid
+  
+  # Load middle element
+  STRING concat "arr_" $mid -> $key
+  MEMORY load $key -> $mid_value
+  
+  # Compare with target
+  IF $mid_value == $target THEN
+    SET $found $mid
+    RETURN $found
+  ENDIF
+  
+  IF $mid_value < $target THEN
+    COMPUTE add $mid 1 -> $left
+  ELSE
+    COMPUTE sub $mid 1 -> $right
+  ENDIF
+ENDLOOP
+
+RETURN $found
+---

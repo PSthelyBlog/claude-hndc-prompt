@@ -1,0 +1,38 @@
+PROGRAM: prime_checker_advanced
+Description: Checks if number is prime with optimizations
+Expected inputs: $n (number to check)
+---
+# Handle special cases
+IF $n <= 1 THEN
+  RETURN false
+ENDIF
+
+IF $n == 2 THEN
+  RETURN true
+ENDIF
+
+# Even numbers (except 2) are not prime
+COMPUTE mod $n 2 -> $remainder
+IF $remainder == 0 THEN
+  RETURN false
+ENDIF
+
+# Check odd divisors up to sqrt(n)
+COMPUTE sqrt $n -> $limit
+SET $divisor 3
+
+LOOP $limit
+  IF $divisor > $limit THEN
+    RETURN true
+  ENDIF
+  
+  COMPUTE mod $n $divisor -> $remainder
+  IF $remainder == 0 THEN
+    RETURN false
+  ENDIF
+  
+  COMPUTE add $divisor 2 -> $divisor
+ENDLOOP
+
+RETURN true
+---

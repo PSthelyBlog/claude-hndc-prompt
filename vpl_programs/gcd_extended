@@ -1,0 +1,43 @@
+PROGRAM: gcd_extended
+Description: Extended Euclidean algorithm (finds GCD and Bezout coefficients)
+Expected inputs: $a, $b
+---
+# Initialize coefficients
+SET $old_r $a
+SET $r $b
+SET $old_s 1
+SET $s 0
+SET $old_t 0
+SET $t 1
+
+LOOP 1000
+  IF $r == 0 THEN
+    MEMORY store gcd $old_r
+    MEMORY store bezout_s $old_s
+    MEMORY store bezout_t $old_t
+    RETURN $old_r
+  ENDIF
+  
+  # Calculate quotient
+  COMPUTE div $old_r $r -> $quotient
+  MATH floor $quotient -> $quotient
+  
+  # Update r
+  COMPUTE mul $quotient $r -> $temp
+  COMPUTE sub $old_r $temp -> $new_r
+  SET $old_r $r
+  SET $r $new_r
+  
+  # Update s
+  COMPUTE mul $quotient $s -> $temp
+  COMPUTE sub $old_s $temp -> $new_s
+  SET $old_s $s
+  SET $s $new_s
+  
+  # Update t
+  COMPUTE mul $quotient $t -> $temp
+  COMPUTE sub $old_t $temp -> $new_t
+  SET $old_t $t
+  SET $t $new_t
+ENDLOOP
+---

@@ -1,0 +1,27 @@
+PROGRAM: compound_interest
+Description: Calculates compound interest A = P(1 + r/n)^(nt)
+Expected inputs: $principal, $rate, $compounds_per_year, $years
+---
+# Convert percentage rate to decimal if needed
+IF $rate > 1 THEN
+  COMPUTE div $rate 100 -> $rate
+ENDIF
+
+# Calculate (1 + r/n)
+COMPUTE div $rate $compounds_per_year -> $rate_per_period
+COMPUTE add 1 $rate_per_period -> $growth_factor
+
+# Calculate nt (total number of compounds)
+COMPUTE mul $compounds_per_year $years -> $total_compounds
+
+# Calculate final amount
+COMPUTE pow $growth_factor $total_compounds -> $multiplier
+COMPUTE mul $principal $multiplier -> $final_amount
+
+# Calculate interest earned
+COMPUTE sub $final_amount $principal -> $interest_earned
+
+MEMORY store final_amount $final_amount
+MEMORY store interest_earned $interest_earned
+RETURN $final_amount
+---

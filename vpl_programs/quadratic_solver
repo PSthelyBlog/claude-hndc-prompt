@@ -1,0 +1,32 @@
+PROGRAM: quadratic_solver
+Description: Solves quadratic equations ax² + bx + c = 0
+Expected inputs: $a, $b, $c (coefficients)
+---
+# Calculate discriminant: b² - 4ac
+COMPUTE pow $b 2 -> $b_squared
+COMPUTE mul 4 $a -> $four_a
+COMPUTE mul $four_a $c -> $four_ac
+COMPUTE sub $b_squared $four_ac -> $discriminant
+
+# Check if real roots exist
+IF $discriminant < 0 THEN
+  RETURN "No real roots"
+ENDIF
+
+# Calculate roots using quadratic formula
+COMPUTE sqrt $discriminant -> $sqrt_disc
+COMPUTE mul 2 $a -> $two_a
+COMPUTE sub 0 $b -> $neg_b
+
+# Root 1: (-b + √discriminant) / 2a
+COMPUTE add $neg_b $sqrt_disc -> $numerator1
+COMPUTE div $numerator1 $two_a -> $root1
+
+# Root 2: (-b - √discriminant) / 2a
+COMPUTE sub $neg_b $sqrt_disc -> $numerator2
+COMPUTE div $numerator2 $two_a -> $root2
+
+MEMORY store root1 $root1
+MEMORY store root2 $root2
+RETURN $root1
+---

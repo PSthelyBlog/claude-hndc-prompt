@@ -1,0 +1,32 @@
+PROGRAM: fibonacci_sequence
+Description: Generates n Fibonacci numbers and stores in memory
+Expected inputs: $count (number of terms to generate)
+---
+# Initialize first two terms
+SET $fib0 0
+SET $fib1 1
+MEMORY store fib_0 0
+MEMORY store fib_1 1
+
+# Generate remaining terms
+SET $i 2
+LOOP $count
+  IF $i >= $count THEN
+    RETURN "Sequence complete"
+  ENDIF
+  
+  # Calculate next term
+  COMPUTE add $fib0 $fib1 -> $next_fib
+  
+  # Store in memory with index
+  STRING concat "fib_" $i -> $key
+  MEMORY store $key $next_fib
+  
+  # Update variables for next iteration
+  SET $fib0 $fib1
+  SET $fib1 $next_fib
+  COMPUTE add $i 1 -> $i
+ENDLOOP
+
+RETURN $count
+---
