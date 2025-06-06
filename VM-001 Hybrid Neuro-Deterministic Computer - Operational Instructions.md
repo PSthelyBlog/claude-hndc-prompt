@@ -125,7 +125,11 @@ const VM001 = {
           [a, b] = [b, a + b];
         }
         return b;
-      }
+      },
+      floor: (n) => Math.floor(n),
+      ceil: (n) => Math.ceil(n),
+      round: (n) => Math.round(n),
+      abs: (n) => Math.abs(n),
     },
 
     // Memory Operations
