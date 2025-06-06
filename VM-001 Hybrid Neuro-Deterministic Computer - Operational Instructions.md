@@ -232,6 +232,320 @@ const VM001 = {
     }
   },
 
+  // VPL Parser Module
+  vpl: {
+    parse: function(vplText) {
+      const lines = vplText.trim().split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+      const instructions = [];
+      let i = 0;
+      
+      while (i < lines.length) {
+        const line = lines[i];
+        const parts = line.split(/\s+/);
+        const op = parts[0].toUpperCase();
+        
+        if (op === 'IF') {
+          const condition = this.parseCondition(line);
+          const ifBlock = [];
+          let elseBlock = [];
+          i++;
+          
+          // Parse IF block
+          while (i < lines.length && lines[i].toUpperCase() !== 'ELSE' && lines[i].toUpperCase() !== 'ENDIF') {
+            ifBlock.push(lines[i]);
+            i++;
+          }
+          
+          // Parse ELSE block if exists
+          if (i < lines.length && lines[i].toUpperCase() === 'ELSE') {
+            i++;
+            while (i < lines.length && lines[i].toUpperCase() !== 'ENDIF') {
+              elseBlock.push(lines[i]);
+              i++;
+            }
+          }
+          
+          instructions.push({
+            op: 'IF',
+            condition: condition,
+            ifBlock: this.parse(ifBlock.join('\n')),
+            elseBlock: elseBlock.length ? this.parse(elseBlock.join('\n')) : []
+          });
+        } else if (op === 'LOOP') {
+          const count = parts[1];
+          const loopBlock = [];
+          i++;
+          
+          while (i < lines.length && lines[i].toUpperCase() !== 'ENDLOOP') {
+            loopBlock.push(lines[i]);
+            i++;
+          }
+          
+          instructions.push({
+            op: 'LOOP',
+            count: count,
+            block: this.parse(loopBlock.join('\n'))
+          });
+        } else if (op === 'SET') {
+          instructions.push({
+            op: 'SET',
+            target: parts[1],
+            value: parts.slice(2).join(' ')
+          });
+        } else if (op === 'RETURN') {
+          instructions.push({
+            op: 'RETURN',
+            value: parts.slice(1).join(' ')
+          });
+        } else if (op === 'CALL') {
+          instructions.push({
+            op: 'CALL',
+            program: parts[1]
+          });
+        } else {
+          // Regular VM operations
+          const arrowIndex = parts.indexOf('->');
+          let target = null;
+          let args = parts.slice(1);
+          
+          if (arrowIndex !== -1) {
+            target = parts[arrowIndex + 1];
+            args = parts.slice(1, arrowIndex);
+          }
+          
+          instructions.push({
+            op: op,
+            args: args,
+            target: target
+          });
+        }
+        
+        i++;
+      }
+      
+      return instructions;
+    },
+    
+    parseCondition: function(line) {
+      // Parse IF condition: IF $var > 10 THEN
+      const match = line.match(/IF\s+(.+?)\s+(>|<|>=|<=|==|!=)\s+(.+?)\s+THEN/i);
+      if (match) {
+        return {
+          left: match[1],
+          op: match[2],
+          right: match[3]
+        };
+      }
+      throw new Error('Invalid IF condition syntax');
+    },
+    
+    validate: function(instructions) {
+      // Basic validation
+      for (const inst of instructions) {
+        if (!inst.op) throw new Error('Invalid instruction: missing operation');
+      }
+      return true;
+    },
+    
+    compile: function(programName, vplText) {
+      const instructions = this.parse(vplText);
+      this.validate(instructions);
+      return {
+        type: 'program',
+        name: programName,
+        instructions: instructions,
+        source: vplText,
+        metadata: {
+          created: Date.now(),
+          lastRun: null,
+          runCount: 0
+        }
+      };
+    }
+  },
+
+  // Program Storage and Execution
+  programs: {
+    store: function(name, programObj) {
+      const key = 'PROG_' + name;
+      if (VM001.state.memory.size >= VM001.config.memoryLimit) {
+        throw new Error(`Memory limit exceeded (max: ${VM001.config.memoryLimit})`);
+      }
+      VM001.state.memory.set(key, programObj);
+      return true;
+    },
+    
+    load: function(name) {
+      const key = 'PROG_' + name;
+      if (!VM001.state.memory.has(key)) {
+        throw new Error(`Program '${name}' not found`);
+      }
+      return VM001.state.memory.get(key);
+    },
+    
+    list: function() {
+      const programs = [];
+      for (const [key, value] of VM001.state.memory.entries()) {
+        if (key.startsWith('PROG_') && value.type === 'program') {
+          programs.push({
+            name: value.name,
+            created: new Date(value.metadata.created).toISOString(),
+            runCount: value.metadata.runCount
+          });
+        }
+      }
+      return programs;
+    },
+    
+    delete: function(name) {
+      const key = 'PROG_' + name;
+      if (!VM001.state.memory.has(key)) {
+        throw new Error(`Program '${name}' not found`);
+      }
+      VM001.state.memory.delete(key);
+      return true;
+    },
+    
+    createContext: function() {
+      return {
+        locals: new Map(),
+        returnValue: null,
+        callStack: []
+      };
+    },
+    
+    resolveValue: function(value, context) {
+      if (typeof value !== 'string') return value;
+      
+      if (value.startsWith('$')) {
+        const varName = value.substring(1);
+        
+        // Special variables
+        if (varName === 'RESULT') return context.lastResult;
+        if (varName === 'STACK_TOP') return VM001.state.stack[VM001.state.stack.length - 1];
+        if (varName.startsWith('REG_')) {
+          const reg = varName.substring(4);
+          return VM001.state.registers[reg];
+        }
+        if (varName.startsWith('FLAG_')) {
+          const flag = varName.substring(5).toLowerCase();
+          return VM001.state.flags[flag];
+        }
+        
+        // Check locals first
+        if (context.locals.has(varName)) {
+          return context.locals.get(varName);
+        }
+        
+        // Then check global memory
+        if (VM001.state.memory.has(varName)) {
+          return VM001.state.memory.get(varName);
+        }
+        
+        throw new Error(`Variable '${varName}' not found`);
+      }
+      
+      // Try to parse as number
+      const num = parseFloat(value);
+      if (!isNaN(num)) return num;
+      
+      // Return as string
+      return value;
+    },
+    
+    evaluateCondition: function(condition, context) {
+      const left = this.resolveValue(condition.left, context);
+      const right = this.resolveValue(condition.right, context);
+      
+      switch (condition.op) {
+        case '>': return left > right;
+        case '<': return left < right;
+        case '>=': return left >= right;
+        case '<=': return left <= right;
+        case '==': return left == right;
+        case '!=': return left != right;
+        default: throw new Error(`Unknown comparison operator: ${condition.op}`);
+      }
+    },
+    
+    executeInstruction: function(inst, context) {
+      if (inst.op === 'IF') {
+        const condResult = this.evaluateCondition(inst.condition, context);
+        const block = condResult ? inst.ifBlock : inst.elseBlock;
+        for (const subInst of block) {
+          const result = this.executeInstruction(subInst, context);
+          if (result && result.type === 'return') return result;
+        }
+      } else if (inst.op === 'LOOP') {
+        const count = this.resolveValue(inst.count, context);
+        for (let i = 0; i < count; i++) {
+          for (const subInst of inst.block) {
+            const result = this.executeInstruction(subInst, context);
+            if (result && result.type === 'return') return result;
+          }
+        }
+      } else if (inst.op === 'SET') {
+        const value = this.resolveValue(inst.value, context);
+        if (inst.target.startsWith('$')) {
+          const varName = inst.target.substring(1);
+          if (varName.startsWith('REG_')) {
+            const reg = varName.substring(4);
+            VM001.state.registers[reg] = value;
+          } else {
+            context.locals.set(varName, value);
+          }
+        }
+        context.lastResult = value;
+      } else if (inst.op === 'RETURN') {
+        return {
+          type: 'return',
+          value: this.resolveValue(inst.value, context)
+        };
+      } else if (inst.op === 'CALL') {
+        const result = this.execute(inst.program, [], context);
+        context.lastResult = result;
+      } else {
+        // Regular VM operation
+        const resolvedArgs = inst.args.map(arg => this.resolveValue(arg, context));
+        const command = inst.op + ' ' + resolvedArgs.join(' ');
+        const result = VM001.execute(command);
+        
+        if (result.result !== undefined && result.result !== null) {
+          context.lastResult = result.result;
+          if (inst.target && inst.target.startsWith('$')) {
+            const varName = inst.target.substring(1);
+            if (varName.startsWith('REG_')) {
+              const reg = varName.substring(4);
+              VM001.state.registers[reg] = result.result;
+            } else {
+              context.locals.set(varName, result.result);
+            }
+          }
+        }
+      }
+    },
+    
+    execute: function(name, args, parentContext) {
+      const program = this.load(name);
+      const context = parentContext || this.createContext();
+      
+      // Update metadata
+      program.metadata.lastRun = Date.now();
+      program.metadata.runCount++;
+      VM001.state.memory.set('PROG_' + name, program);
+      
+      // Execute instructions
+      for (const inst of program.instructions) {
+        const result = this.executeInstruction(inst, context);
+        if (result && result.type === 'return') {
+          return result.value;
+        }
+      }
+      
+      return context.lastResult;
+    }
+  },
+
   // Core Operations
   execute: function(command) {
     const startTime = Date.now();
@@ -316,6 +630,8 @@ const VM001 = {
         return this.clearState(parts.slice(1));
       case 'CONFIG':
         return this.executeConfig(parts.slice(1));
+      case 'PROGRAM':
+        return this.executeProgram(parts.slice(1));
       default:
         throw new Error(`Unknown instruction: ${instruction}`);
     }
@@ -453,6 +769,60 @@ const VM001 = {
       return this.setConfigValue(path, value);
     } else {
       throw new Error(`Unknown config action: ${action}`);
+    }
+  },
+
+  executeProgram: function(args) {
+    const [action, ...params] = args;
+    
+    switch (action.toUpperCase()) {
+      case 'DEFINE':
+        // Extract program name and code
+        const defineMatch = params.join(' ').match(/^(\w+)\s+(.+)$/s);
+        if (!defineMatch) {
+          throw new Error('Invalid PROGRAM DEFINE syntax');
+        }
+        const progName = defineMatch[1];
+        const progCode = defineMatch[2];
+        
+        // Parse the program
+        const programObj = this.vpl.compile(progName, progCode);
+        this.programs.store(progName, programObj);
+        return `Program '${progName}' defined successfully`;
+        
+      case 'RUN':
+        if (params.length < 1) {
+          throw new Error('Program name required');
+        }
+        const runName = params[0];
+        const runArgs = params.slice(1);
+        return this.programs.execute(runName, runArgs);
+        
+      case 'LIST':
+        const programList = this.programs.list();
+        if (programList.length === 0) {
+          return 'No programs defined';
+        }
+        return programList;
+        
+      case 'SHOW':
+        if (params.length < 1) {
+          throw new Error('Program name required');
+        }
+        const showName = params[0];
+        const program = this.programs.load(showName);
+        return program.source;
+        
+      case 'DELETE':
+        if (params.length < 1) {
+          throw new Error('Program name required');
+        }
+        const deleteName = params[0];
+        this.programs.delete(deleteName);
+        return `Program '${deleteName}' deleted`;
+        
+      default:
+        throw new Error(`Unknown PROGRAM action: ${action}`);
     }
   },
 
@@ -697,6 +1067,7 @@ Core Instruction Categories:
 4. STACK - LIFO ops (push/pop/peek, limit: 100)
 5. REG - Registers (A, B, C, D)
 6. STRING/ARRAY/BIT - Data operations
+7. PROGRAM - VPL operations (define/run/list/show/delete)
 
 Execution Protocol:
 1. Parse command through artifact's execute() function
@@ -704,6 +1075,82 @@ Execution Protocol:
 3. Update state after successful operations
 4. Maintain operation history (last 5)
 5. Update flags (zero, carry, overflow, error)
+
+## VM-001 Protocol Language (VPL)
+
+The VM-001 Protocol Language allows users to define reusable programs that execute without natural language processing.
+
+### VPL Commands:
+1. **PROGRAM DEFINE <name> <vpl_code>** - Create a new program
+2. **PROGRAM RUN <name> [args]** - Execute a stored program
+3. **PROGRAM LIST** - Show all stored programs
+4. **PROGRAM SHOW <name>** - Display program source code
+5. **PROGRAM DELETE <name>** - Remove program from memory
+
+### VPL Syntax:
+
+**Variable References:**
+- `$varname` - Local or memory variable
+- `$RESULT` - Last operation result
+- `$STACK_TOP` - Top of stack value
+- `$REG_A`, `$REG_B`, `$REG_C`, `$REG_D` - Register values
+- `$FLAG_zero`, `$FLAG_carry`, `$FLAG_overflow`, `$FLAG_error` - Flag states
+
+**Operations:**
+- All VM instructions with optional `-> $target` for result storage
+- `SET $target value` - Direct assignment
+- `RETURN value` - Program return value
+- `CALL program_name` - Execute another program
+
+**Control Flow:**
+```
+IF $condition > value THEN
+  <operations>
+ELSE
+  <operations>
+ENDIF
+
+LOOP count
+  <operations>
+ENDLOOP
+```
+
+### VPL Example:
+```
+PROGRAM DEFINE quadratic
+  # Calculate discriminant
+  COMPUTE pow $b 2 -> $b_sq
+  COMPUTE mul 4 $a -> $four_a
+  COMPUTE mul $four_a $c -> $four_ac
+  COMPUTE sub $b_sq $four_ac -> $disc
+  
+  # Check if real roots exist
+  IF $disc < 0 THEN
+    RETURN "No real roots"
+  ENDIF
+  
+  # Calculate roots
+  COMPUTE sqrt $disc -> $sqrt_disc
+  COMPUTE mul 2 $a -> $two_a
+  COMPUTE sub 0 $b -> $neg_b
+  
+  COMPUTE add $neg_b $sqrt_disc -> $num1
+  COMPUTE div $num1 $two_a -> $root1
+  
+  COMPUTE sub $neg_b $sqrt_disc -> $num2
+  COMPUTE div $num2 $two_a -> $root2
+  
+  MEMORY store root1 $root1
+  MEMORY store root2 $root2
+  RETURN "Roots calculated"
+END
+```
+
+### VPL Storage:
+- Programs stored with prefix `PROG_` in memory
+- Each program counts as one memory slot
+- Programs include metadata (creation time, run count)
+- Programs can call other programs recursively
 
 ## Configuration Management
 
@@ -822,6 +1269,7 @@ Help Commands:
 - help <command> - Specific details
 - help natural - Natural language guide
 - help examples - Usage examples
+- help vpl - VPL syntax and examples
 
 ## Advanced Features
 
@@ -830,6 +1278,7 @@ Help Commands:
 3. Batch Operations: Process multiple values
 4. Statistical Operations: Comprehensive stats on arrays
 5. Composite Commands: Multi-step algorithms
+6. VPL Programs: Reusable computation sequences
 
 ## Operational Integrity
 
@@ -860,6 +1309,7 @@ Loading deterministic computation engine... OK
 Initializing state management layer... OK
 Establishing LLM substrate connection... OK
 Configuring terminal interface... OK
+Loading VM-001 Protocol Language (VPL)... OK
 
 System ready.
 
@@ -867,7 +1317,9 @@ Quick Help:
 - Natural language: "calculate 42 + 58" or "what's the factorial of 7"
 - Direct commands: COMPUTE add 42 58, MATH factorial 7
 - Memory: "store x as 100" or MEMORY store x 100
+- Programs: PROGRAM DEFINE name <vpl_code>, PROGRAM RUN name
 - Type 'help' for full command reference
+- Type 'help vpl' for protocol language guide
 - Type 'status' to view system state
 - Type 'config' to view/modify settings
 
@@ -881,6 +1333,7 @@ VM-001> _
 - Track last results for references
 - Preserve memory and registers
 - Continue existing state in ongoing sessions
+- Stored VPL programs persist in memory
 
 ## Final Operational Principle
 
