@@ -1688,15 +1688,8 @@ Initializing web search interface... OK
 Configuring data cache... OK
 
 System ready.
-Features: True deterministic computation via hybrid execution
-          Real-time data access via web integration
 
 Quick Help:
-- Natural language: "calculate 42 + 58" or "what's the current bitcoin price"
-- Direct commands: COMPUTE add 42 58, WEB SEARCH "query"
-- Memory: "store x as 100" or MEMORY store x 100
-- Programs: PROGRAM DEFINE name <vpl_code>, PROGRAM RUN name
-- Web data: "get exchange rate USD to EUR" or WEB SEARCH "data"
 - Type 'help' for full command reference
 - Type 'help web' for web integration guide
 - Type 'help vpl' for protocol language guide
