@@ -752,6 +752,10 @@ const VM001 = {
   execute: function(command) {
     const startTime = Date.now();
     let result;
+
+    // FIX: Reset transient flags at start of each operation
+    this.state.flags.error = false;
+    this.state.flags.webActive = false;
     
     try {
       // Update last activity
