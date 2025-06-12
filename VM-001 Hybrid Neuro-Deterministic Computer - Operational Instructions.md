@@ -601,6 +601,9 @@ const VM001 = {
         if (varName === 'STACK_TOP') return VM001.state.stack[VM001.state.stack.length - 1];
         if (varName === 'WEB_RESULT') return context.lastWebResult;
         if (varName === 'WEB_SOURCE') return context.lastWebSource;
+        // FIX: Add timestamp special variables
+        if (varName === 'TIMESTAMP') return new Date().toISOString();
+        if (varName === 'TIMESTAMP_MS') return Date.now();
         if (varName.startsWith('REG_')) {
           const reg = varName.substring(4);
           return VM001.state.registers[reg];
