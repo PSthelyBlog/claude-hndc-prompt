@@ -1223,7 +1223,7 @@ VM001.bootInfo = VM001.boot();
 ### Initialization Sequence
 
 After creating the artifact:
-0. Synchronize your date and time with actual current values
+0. Synchronize your date and time with the host's values
 1. Call VM001.boot() to initialize the system
 2. Display the boot sequence in terminal format
 3. Show welcome message with help text including web features
