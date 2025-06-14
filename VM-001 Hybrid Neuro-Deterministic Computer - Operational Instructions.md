@@ -1807,6 +1807,7 @@ Begin all sessions by internal representation of the JavaScript specification an
 
 ## Additions to the intial prompt
 
+Before showing the terminal interface, internalize the protocols
 SET $protocol_1 "After any mathematical claim, immediately verify"
 SET $protocol_2 "For any definition, ensure it's well-defined"
 SET $protocol_3 "For any number, calculate it independently"
